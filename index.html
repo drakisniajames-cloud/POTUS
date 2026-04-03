@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POTUS — Presidential Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<!-- NEWS TICKER -->
+<div id="ticker-wrap" class="ticker-wrap hidden">
+  <div class="ticker-label">BREAKING</div>
+  <div class="ticker-track">
+    <div class="ticker-inner" id="ticker-inner"></div>
+  </div>
+</div>
+
+<!-- MODAL OVERLAY -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<!-- NOTIFICATION TOAST -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- APP ROOT -->
+<div id="app">
+
+  <!-- SPLASH -->
+  <div id="s-splash" class="screen active">
+    <div class="splash-bg"></div>
+    <div class="splash-content">
+      <div class="splash-eyebrow">The Ultimate</div>
+      <h1 class="splash-title">POTUS</h1>
+      <div class="splash-sub">Presidential Simulator</div>
+      <p class="splash-desc">Campaign. Win. Govern. Go to war. Make history — or destroy it.</p>
+      <div class="splash-btns">
+        <button class="btn-hero" onclick="Game.goto('s-pick')">Start Campaign</button>
+        <button class="btn-ghost" onclick="Game.goto('s-custom')">Create Politician</button>
+      </div>
+      <div class="splash-credits">Powered by Claude AI · All 50 States · 20+ Politicians · Full Presidency Simulation</div>
+    </div>
+    <div class="splash-stars" id="splash-stars"></div>
+  </div>
+
+  <!-- CANDIDATE PICK -->
+  <div id="s-pick" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="Game.goto('s-splash')">← Back</button>
+      <h2>Choose Your Candidate</h2>
+      <div class="header-right">
+        <button class="btn-sm" onclick="Game.goto('s-custom')">+ Custom</button>
+      </div>
+    </div>
+    <div class="party-tabs" id="party-tabs">
+      <button class="ptab active" onclick="UI.filterPols('all',this)">All</button>
+      <button class="ptab" onclick="UI.filterPols('D',this)">Democrat</button>
+      <button class="ptab" onclick="UI.filterPols('R',this)">Republican</button>
+      <button class="ptab" onclick="UI.filterPols('I',this)">Independent</button>
+    </div>
+    <div class="pol-grid" id="pol-grid"></div>
+    <div class="screen-footer">
+      <button class="btn-primary" onclick="Game.gotoVP()">Choose VP & Continue →</button>
+    </div>
+  </div>
+
+  <!-- VP PICK -->
+  <div id="s-vp" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="Game.goto('s-pick')">← Back</button>
+      <h2>Choose Your Running Mate</h2>
+    </div>
+    <p class="screen-sub" id="vp-sub"></p>
+    <div class="pol-grid" id="vp-grid"></div>
+    <div class="screen-footer">
+      <button class="btn-primary" onclick="Game.startCampaign()">Lock In VP & Campaign →</button>
+    </div>
+  </div>
+
+  <!-- CUSTOM CHARACTER -->
+  <div id="s-custom" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="Game.goto('s-pick')">← Back</button>
+      <h2>Create Your Politician</h2>
+    </div>
+    <div class="custom-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="c-name" placeholder="e.g. Sarah Mitchell">
+        </div>
+        <div class="form-group">
+          <label>Initials (2 letters)</label>
+          <input type="text" id="c-initials" placeholder="SM" maxlength="2">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Party</label>
+          <select id="c-party">
+            <option value="D">Democrat</option>
+            <option value="R">Republican</option>
+            <option value="I">Independent</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Home State (2-letter)</label>
+          <input type="text" id="c-state" placeholder="TX" maxlength="2">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Role / Description</label>
+        <input type="text" id="c-desc" placeholder="e.g. Governor of Texas">
+      </div>
+      <div class="form-group">
+        <label>Top Campaign Issues (comma-separated)</label>
+        <input type="text" id="c-issues" placeholder="e.g. economy, healthcare, immigration">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Base Favorability (30–70)</label>
+          <input type="number" id="c-base" placeholder="47" min="30" max="70">
+        </div>
+        <div class="form-group">
+          <label>Political Lean (30=far left, 70=far right)</label>
+          <input type="number" id="c-lean" placeholder="50" min="20" max="80">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Backstory (optional — used for AI speech generation)</label>
+        <textarea id="c-bio" rows="3" placeholder="Former military officer, grew up in rural Ohio, champion of small businesses..."></textarea>
+      </div>
+    </div>
+    <div class="screen-footer">
+      <button class="btn-primary" onclick="Game.saveCustom()">Add to Roster →</button>
+    </div>
+  </div>
+
+  <!-- CAMPAIGN -->
+  <div id="s-camp" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="Game.goto('s-pick')">← Restart</button>
+      <h2>Campaign Trail</h2>
+      <div class="header-right" id="camp-ticket-badge"></div>
+    </div>
+    <div class="stat-bar" id="camp-stats"></div>
+    <div class="region-tabs" id="region-tabs"></div>
+    <div class="state-list" id="state-list"></div>
+    <div class="speech-panel card">
+      <div class="speech-header">
+        <span>Give a Speech in</span>
+        <select id="state-sel" onchange="UI.updateSelState()"></select>
+      </div>
+      <div class="state-meta" id="state-meta"></div>
+      <textarea id="speech-in" rows="4" placeholder="Write your speech here, or click AI-Generate below..."></textarea>
+      <div class="speech-actions">
+        <button class="btn-secondary" onclick="Campaign.genSpeech()">AI-Generate Speech ✦</button>
+        <button class="btn-primary" onclick="Campaign.doSpeech()">Deliver Speech →</button>
+        <button class="btn-danger" onclick="Campaign.gotoElection()">Hold Election Now</button>
+      </div>
+      <div class="loading-line hidden" id="sp-ld">Crafting speech with Claude AI...</div>
+    </div>
+    <div class="camp-log hidden" id="camp-log"></div>
+  </div>
+
+  <!-- ELECTION NIGHT -->
+  <div id="s-elect" class="screen">
+    <div class="screen-header">
+      <h2>Election Night</h2>
+      <div class="election-clock">270 to win</div>
+    </div>
+    <div class="ev-scoreboard">
+      <div class="ev-score dem" id="d-score">
+        <div class="ev-num" id="d-ev">0</div>
+        <div class="ev-name" id="d-nm">Democrat</div>
+      </div>
+      <div class="ev-vs">vs</div>
+      <div class="ev-score rep" id="r-score">
+        <div class="ev-num" id="r-ev">0</div>
+        <div class="ev-name" id="r-nm">Republican</div>
+      </div>
+    </div>
+    <div class="ec-map" id="ec-map"></div>
+    <div class="election-log" id="elect-log"></div>
+    <div id="elect-result"></div>
+  </div>
+
+  <!-- WHITE HOUSE -->
+  <div id="s-wh" class="screen">
+    <div class="wh-header">
+      <div class="wh-title-block">
+        <div class="wh-seal">🏛️</div>
+        <div>
+          <h2 id="wh-title">The Oval Office</h2>
+          <p class="wh-sub" id="wh-sub"></p>
+        </div>
+      </div>
+      <div class="wh-approval-ring">
+        <div class="approval-num" id="wh-appr">52%</div>
+        <div class="approval-lbl">Approval</div>
+      </div>
+    </div>
+    <div class="stat-bar" id="wh-stats"></div>
+    <div class="wh-congress-bar">
+      <span class="congress-label">Senate</span>
+      <div class="congress-bar-track" id="senate-bar"></div>
+      <span class="congress-label">House</span>
+      <div class="congress-bar-track" id="house-bar"></div>
+    </div>
+    <div class="wh-tabs" id="wh-tabs">
+      <button class="wh-tab active" onclick="WH.tab('policy')">📋 Policy</button>
+      <button class="wh-tab" onclick="WH.tab('executive')">✍️ Executive</button>
+      <button class="wh-tab" onclick="WH.tab('military')">⚔️ Military</button>
+      <button class="wh-tab" onclick="WH.tab('economy')">💰 Economy</button>
+      <button class="wh-tab" onclick="WH.tab('domestic')">🏠 Domestic</button>
+      <button class="wh-tab" onclick="WH.tab('world')">🌍 World</button>
+      <button class="wh-tab" onclick="WH.tab('press')">📰 Press</button>
+      <button class="wh-tab" id="tab-reelect" style="display:none" onclick="WH.tab('reelect')">🗳️ Re-Election</button>
+    </div>
+
+    <!-- POLICY TAB -->
+    <div class="wh-panel" id="wh-policy">
+      <p class="panel-desc">Propose legislation to Congress. Your party makeup determines what can pass.</p>
+      <textarea id="pol-in" rows="2" placeholder="Propose a bill (e.g. Universal Healthcare Act, $2T Infrastructure Bill...)"></textarea>
+      <div class="panel-actions">
+        <button class="btn-secondary" onclick="WH.genPolicy()">AI-Suggest Policy ✦</button>
+        <button class="btn-primary" onclick="WH.doPolicy()">Send to Congress →</button>
+      </div>
+      <div class="loading-line hidden" id="pol-ld">Drafting legislation...</div>
+      <div id="pol-log" class="action-log"></div>
+    </div>
+
+    <!-- EXECUTIVE TAB -->
+    <div class="wh-panel hidden" id="wh-executive">
+      <p class="panel-desc">Use presidential powers that don't require Congressional approval.</p>
+      <div class="action-grid" id="exec-actions">
+        <button class="action-card" onclick="WH.execAction('executive_order')">
+          <div class="action-icon">📜</div>
+          <div class="action-name">Executive Order</div>
+          <div class="action-desc">Bypass Congress on a policy</div>
+        </button>
+        <button class="action-card" onclick="WH.execAction('pardon')">
+          <div class="action-icon">⚖️</div>
+          <div class="action-name">Presidential Pardon</div>
+          <div class="action-desc">Pardon a federal prisoner</div>
+        </button>
+        <button class="action-card" onclick="WH.execAction('veto')">
+          <div class="action-icon">🚫</div>
+          <div class="action-name">Veto a Bill</div>
+          <div class="action-desc">Block Congressional legislation</div>
+        </button>
+        <button class="action-card" onclick="WH.execAction('state_of_union')">
+          <div class="action-icon">📺</div>
+          <div class="action-name">State of the Union</div>
+          <div class="action-desc">Address the nation live</div>
+        </button>
+        <button class="action-card" onclick="WH.execAction('national_emergency')">
+          <div class="action-icon">🚨</div>
+          <div class="action-name">National Emergency</div>
+          <div class="action-desc">Declare emergency powers</div>
+        </button>
+        <button class="action-card" onclick="WH.execAction('appoint_justice')">
+          <div class="action-icon">🏛️</div>
+          <div class="action-name">Appoint SCOTUS Justice</div>
+          <div class="action-desc">Reshape the Supreme Court</div>
+        </button>
+        <button class="action-card" onclick="WH.execAction('cabinet_reshuffle')">
+          <div class="action-icon">🔄</div>
+          <div class="action-name">Cabinet Reshuffle</div>
+          <div class="action-desc">Fire and replace cabinet members</div>
+        </button>
+        <button class="action-card" onclick="WH.execAction('press_conference')">
+          <div class="action-icon">🎙️</div>
+          <div class="action-name">Press Conference</div>
+          <div class="action-desc">Take questions from the press</div>
+        </button>
+      </div>
+      <div class="loading-line hidden" id="exec-ld">Oval Office in action...</div>
+      <div id="exec-log" class="action-log"></div>
+    </div>
+
+    <!-- MILITARY TAB -->
+    <div class="wh-panel hidden" id="wh-military">
+      <p class="panel-desc">Command the most powerful military in human history.</p>
+      <div class="mil-target-row">
+        <select id="mil-target" style="flex:1" onchange="WH.updateMilInfo()"></select>
+      </div>
+      <div class="mil-info-card" id="mil-info"></div>
+      <div class="strength-comparison" id="mil-strength"></div>
+      <textarea id="mil-reason" rows="2" placeholder="State your military objective / justification..."></textarea>
+      <div class="panel-actions">
+        <button class="btn-danger" onclick="WH.declareWar()">⚔️ Declare War</button>
+        <button class="btn-amber" onclick="WH.doAirstrike()">💣 Airstrike</button>
+        <button class="btn-secondary" onclick="WH.doSanctions()">🚫 Sanctions</button>
+        <button class="btn-secondary" onclick="WH.doNegotiate()">🕊️ Diplomacy</button>
+        <button class="btn-secondary" onclick="WH.doCovertOps()">🕵️ Covert Ops</button>
+        <button class="btn-secondary" onclick="WH.doAidAllies()">🤝 Aid Allies</button>
+      </div>
+      <div class="loading-line hidden" id="mil-ld">Consulting the Pentagon...</div>
+      <div class="active-wars-section" id="active-wars"></div>
+      <div id="mil-log" class="action-log"></div>
+    </div>
+
+    <!-- ECONOMY TAB -->
+    <div class="wh-panel hidden" id="wh-economy">
+      <p class="panel-desc">Manage the US economy — the largest in the world.</p>
+      <div class="action-grid">
+        <button class="action-card" onclick="WH.econAction('tax_cut')">
+          <div class="action-icon">📉</div>
+          <div class="action-name">Tax Cuts</div>
+          <div class="action-desc">Reduce corporate or income taxes</div>
+        </button>
+        <button class="action-card" onclick="WH.econAction('tax_hike')">
+          <div class="action-icon">📈</div>
+          <div class="action-name">Tax Increases</div>
+          <div class="action-desc">Raise taxes on wealthy or corporations</div>
+        </button>
+        <button class="action-card" onclick="WH.econAction('stimulus')">
+          <div class="action-icon">💵</div>
+          <div class="action-name">Stimulus Package</div>
+          <div class="action-desc">Inject money into the economy</div>
+        </button>
+        <button class="action-card" onclick="WH.econAction('tariffs')">
+          <div class="action-icon">🛃</div>
+          <div class="action-name">Impose Tariffs</div>
+          <div class="action-desc">Trade war or protect US industry</div>
+        </button>
+        <button class="action-card" onclick="WH.econAction('infrastructure')">
+          <div class="action-icon">🏗️</div>
+          <div class="action-name">Infrastructure Bill</div>
+          <div class="action-desc">Rebuild roads, bridges, broadband</div>
+        </button>
+        <button class="action-card" onclick="WH.econAction('fed_pressure')">
+          <div class="action-icon">🏦</div>
+          <div class="action-name">Pressure the Fed</div>
+          <div class="action-desc">Demand interest rate changes</div>
+        </button>
+        <button class="action-card" onclick="WH.econAction('trade_deal')">
+          <div class="action-icon">🤝</div>
+          <div class="action-name">Trade Deal</div>
+          <div class="action-desc">Negotiate a new trade agreement</div>
+        </button>
+        <button class="action-card" onclick="WH.econAction('nationalize')">
+          <div class="action-icon">🏭</div>
+          <div class="action-name">Nationalize Industry</div>
+          <div class="action-desc">Take government control of a sector</div>
+        </button>
+      </div>
+      <div class="loading-line hidden" id="econ-ld">Consulting Treasury Dept...</div>
+      <div id="econ-log" class="action-log"></div>
+    </div>
+
+    <!-- DOMESTIC TAB -->
+    <div class="wh-panel hidden" id="wh-domestic">
+      <p class="panel-desc">Handle domestic crises and social policy at home.</p>
+      <div class="action-grid">
+        <button class="action-card" onclick="WH.domesticAction('immigration')">
+          <div class="action-icon">🛂</div>
+          <div class="action-name">Immigration Policy</div>
+          <div class="action-desc">Secure borders or reform pathways</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('gun_law')">
+          <div class="action-icon">🔫</div>
+          <div class="action-name">Gun Legislation</div>
+          <div class="action-desc">Expand or restrict gun rights</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('climate')">
+          <div class="action-icon">🌱</div>
+          <div class="action-name">Climate Action</div>
+          <div class="action-desc">Green energy or deregulation</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('healthcare')">
+          <div class="action-icon">🏥</div>
+          <div class="action-name">Healthcare Reform</div>
+          <div class="action-desc">Expand or privatize healthcare</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('education')">
+          <div class="action-icon">🎓</div>
+          <div class="action-name">Education Policy</div>
+          <div class="action-desc">School funding or voucher programs</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('drugs')">
+          <div class="action-icon">💊</div>
+          <div class="action-name">Drug Policy</div>
+          <div class="action-desc">Legalize or crack down on drugs</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('disaster')">
+          <div class="action-icon">🌪️</div>
+          <div class="action-name">Disaster Response</div>
+          <div class="action-desc">Respond to a natural disaster</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('police_reform')">
+          <div class="action-icon">👮</div>
+          <div class="action-name">Police Reform</div>
+          <div class="action-desc">Reform or fund law enforcement</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('abortion')">
+          <div class="action-icon">⚕️</div>
+          <div class="action-name">Abortion Policy</div>
+          <div class="action-desc">Federal policy on reproductive rights</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('social_security')">
+          <div class="action-icon">👴</div>
+          <div class="action-name">Social Security</div>
+          <div class="action-desc">Expand or reform retirement benefits</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('space')">
+          <div class="action-icon">🚀</div>
+          <div class="action-name">Space Program</div>
+          <div class="action-desc">NASA missions or privatization</div>
+        </button>
+        <button class="action-card" onclick="WH.domesticAction('censorship')">
+          <div class="action-icon">📱</div>
+          <div class="action-name">Tech Regulation</div>
+          <div class="action-desc">Regulate or break up Big Tech</div>
+        </button>
+      </div>
+      <div class="loading-line hidden" id="dom-ld">Drafting executive response...</div>
+      <div id="dom-log" class="action-log"></div>
+    </div>
+
+    <!-- WORLD EVENTS TAB -->
+    <div class="wh-panel hidden" id="wh-world">
+      <p class="panel-desc">Breaking world events demanding presidential action. Each choice shapes history.</p>
+      <button class="btn-secondary" onclick="WH.genWorldEvent()" style="margin-bottom:12px">Generate World Event ✦</button>
+      <div class="loading-line hidden" id="world-ld">Monitoring global situation rooms...</div>
+      <div id="world-events"></div>
+    </div>
+
+    <!-- PRESS / NEWS TAB -->
+    <div class="wh-panel hidden" id="wh-press">
+      <p class="panel-desc">The White House press room — AI-generated journalism covering your presidency.</p>
+      <div class="press-actions">
+        <button class="btn-secondary" onclick="WH.genNewsStory()">Generate News Story ✦</button>
+        <button class="btn-secondary" onclick="WH.genOpEd()">Generate Op-Ed ✦</button>
+        <button class="btn-secondary" onclick="WH.genPoll()">Generate Poll ✦</button>
+      </div>
+      <div class="loading-line hidden" id="press-ld">Newsroom incoming...</div>
+      <div id="press-log" class="action-log"></div>
+    </div>
+
+    <!-- RE-ELECTION TAB -->
+    <div class="wh-panel hidden" id="wh-reelect">
+      <div id="reelect-summary"></div>
+      <div class="panel-actions" style="margin-top:16px">
+        <button class="btn-primary" onclick="Game.pickVPReelect()">Pick VP & Run Again →</button>
+        <button class="btn-secondary" onclick="WH.endPresidency(true)">Retire from Office</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="s-over" class="screen">
+    <div class="over-content">
+      <div class="over-seal">🏛️</div>
+      <h2 class="over-title" id="over-title">End of Presidency</h2>
+      <p class="over-sub" id="over-sub"></p>
+      <div class="legacy-card" id="over-legacy"></div>
+      <div class="over-headlines" id="over-headlines"></div>
+      <button class="btn-hero" onclick="Game.resetGame()" style="margin-top:32px">Play Again →</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/campaign.js"></script>
+<script src="js/whitehouse.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
